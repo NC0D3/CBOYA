@@ -20,7 +20,7 @@ light_color="#E1DEE3"
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
- 
+        self.picam=None        
         # Configuración de la ventana principal
         self.setWindowTitle("CBOYA")
         self.setGeometry(0, 0, 1024, 600)
@@ -116,10 +116,7 @@ class MainWindow(QWidget):
         DiagnosticoLYT.addWidget(DiagnosticoInicioBTN)
         DiagnosticoInicioBTN.clicked.connect(lambda _,b=DiagnosticoInicioBTN: self.diagnosticar())
         self.Cuerpo.addWidget(Diagnostico)
- 
-#         self.picam=Picamera2()
-#         self.picam.configure(self.picam.create_preview_configuration(main={"format":"RGB888"}))
-        #self.picam.start()
+     
         #Cuerpo Medicion
         Medicion=QWidget(self)
         MedicionLYT=QHBoxLayout(Medicion)
@@ -150,15 +147,20 @@ class MainWindow(QWidget):
     def diagnosticar(self):
         print("entre al diagnostico")
         try:
-            print("si")
-            self.picam=Picamera2()
-            self.picam.configure(self.picam.create_preview_configuration(main={"format":"RGB888"}))
-            self.picam.start()
-            self.picam.set_controls({"AfMode":controls.AfModeEnum.Continuous})
+            if self.picam is None:
+                self.picam=Picamera2()
+                print(self.picam)
+                self.picam.configure(self.picam.create_preview_configuration(main={"format":"RGB888"}))
+                self.picam.start()
+                self.picam.set_controls({"AfMode":controls.AfModeEnum.Continuous})
+            else:
+                self.picam.stop()
+                self.picam.start()
+                self.picam.set_controls({"AfMode":controls.AfModeEnum.Continuous})
             self.DiagnosticoLBL.setText(self.DiagnosticoLBL.text()+"camara conectada\n")
         except:
+            self.picam=None
             self.DiagnosticoLBL.setText(self.DiagnosticoLBL.text()+"camara desconectada\n")
-            print("error")
             self.MenuBTNS[2].setDisabled(True)
             self.MenuBTNS[3].setDisabled(True)
  
@@ -193,6 +195,8 @@ class MainWindow(QWidget):
         self.MenuBTNS[3].setIcon(self.create_colored_icon("media/CalibracionLOGO.png",QColor(main_color)))
         self.Cuerpo.setCurrentIndex(0)
         self.timer.stop()
+        if 'self.picam' in globals():
+            self.picam.stop()
  
  
     def modo_medicion(self,button):
