@@ -1,7 +1,3 @@
-# Umbral para segmentar la cebolla del fondo
-threshold = 50
-scale=34.3
-
 # Función para verificar si un punto está dentro de los límites de la imagen
 def in_bounds(x, y, image):
     return 0 <= x < image.shape[0] and 0 <= y < image.shape[1]
@@ -36,7 +32,7 @@ def trace_all_paths_from_point_optimized(start_point, skeleton):
 def rooteador(frame):
     img = Image.fromarray(frame).convert('L')
     width, height = img.size
-    binarized = np.array(img.point(lambda p: 1 if p > threshold else 0, mode='1')).astype(np.uint8)
+    binarized = np.array(img.point(lambda p: 1 if p > 50 else 0, mode='1')).astype(np.uint8)
     smoothed = cv2.GaussianBlur(binarized, (5, 5), 0)
     row_sums = np.sum(smoothed, axis=1)
     row_sums = np.convolve(row_sums, np.ones(5) / 5, mode='same')
@@ -75,7 +71,7 @@ def rooteador(frame):
         distances = [elemento for sublista in distances for elemento in sublista]
         distances=np.array(distances)
         distances=np.sort(distances)
-        distances=distances/scale
+        distances=distances/34.3
         rounded=np.round(distances).astype(int)
         # Obtener los índices donde cambia el valor redondeado
         _, index = np.unique(rounded, return_index=True)    
