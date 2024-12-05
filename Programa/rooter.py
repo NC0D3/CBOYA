@@ -32,55 +32,85 @@ def trace_all_paths_from_point_optimized(start_point, skeleton):
 def rooteador(frame):
     img = Image.fromarray(frame).convert('L')
     width, height = img.size
+
     binarized = np.array(img.point(lambda p: 1 if p > 50 else 0, mode='1')).astype(np.uint8)
     smoothed = cv2.GaussianBlur(binarized, (5, 5), 0)
     row_sums = np.sum(smoothed, axis=1)
     row_sums = np.convolve(row_sums, np.ones(5) / 5, mode='same')
+
     max_img = np.argmax(row_sums)
     row_sums = row_sums[max_img + 300:]
     smoothed = smoothed[max_img + 300:, :]
+
     img = img.crop((0, max_img + 300, width, height))
     row_sums_derivative = np.abs(np.diff(row_sums)[2:])
     row_sums_derivative = np.convolve(row_sums_derivative, np.ones(10) / 10, mode='same')
     row_sums_derivative = (row_sums_derivative - np.min(row_sums_derivative)) / (np.max(row_sums_derivative) - np.min(row_sums_derivative))
+
     color_changes = np.sum(np.diff(smoothed, axis=1) != 0, axis=1)
     MaxICC = np.argmax(color_changes)
     AboveI = np.where(row_sums_derivative > 0.5)[0]
     CI = AboveI[np.argmin(np.abs(AboveI - MaxICC))] if len(AboveI) > 0 else None
+
     if CI is not None:
         Fimg = smoothed[CI:, :]
         skeleton = morphology.skeletonize(Fimg)
+
         white_pixels = np.argwhere(skeleton)
         top_left = white_pixels.min(axis=0)
         bottom_right = white_pixels.max(axis=0)
         skeleton = skeleton[top_left[0]:bottom_right[0] + 1, top_left[1]:bottom_right[1] + 1]
         skeleton = skeleton[5:, :]
         skeleton[0, :] = skeleton[-1, :] = skeleton[:, 0] = skeleton[:, -1] = 0
+
         kernel = np.array([[1, 1, 1], [1, 10, 1], [1, 1, 1]])
         neighbor_count = cv2.filter2D(skeleton.astype(np.uint8), -1, kernel)
         tail_points = np.argwhere(neighbor_count == 11)
         begin_points = tail_points[tail_points[:, 0] < 15]
+
+        # Crear máscara para excluir los begin_points
+        mask = np.ones(len(tail_points), dtype=bool)
+
+        # Comparar cada punto de tail_points con begin_points y desmarcar si está en begin_points
+        for bp in begin_points:
+            mask &= ~(np.all(tail_points == bp, axis=1))
+
+        # Filtrar los puntos restantes
+        end_roots = tail_points[mask]
+
+        # Imprimir resultados
+        print("Total Tail Points:\n", len(tail_points))
+        print("Number of Begin Points:", len(begin_points))
+        print("Number of End Roots:", len(end_roots))
+
+
         distances = []
         visited_global = set()
+
         for start_point in begin_points:
             start_tuple = tuple(start_point)
             if start_tuple not in visited_global:
                 distance = trace_all_paths_from_point_optimized(start_tuple, skeleton)
                 distances.append(distance)
                 visited_global.add(start_tuple)
+
         distances = [elemento for sublista in distances for elemento in sublista]
         distances=np.array(distances)
-        distances=np.sort(distances)
-        distances=distances/34.3
-        rounded=np.round(distances).astype(int)
-        # Obtener los índices donde cambia el valor redondeado
-        _, index = np.unique(rounded, return_index=True)    
-        # Dividir el array flotante usando los índices
-        groups = np.split(distances, index[1:])
-        # Calcular la media de cada grupo
-        means = np.array([np.mean(group) for group in groups])
+        distances=np.sort(distances)/34.3
+        distances = distances[distances >= 3]
 
-        return means, skeleton, begin_points
+        # Número de grupos (clusters) es igual al tamaño de end_roots
+        num_groups = len(end_roots)
+
+        # Aplicar k-means clustering
+        kmeans = KMeans(n_clusters=num_groups, random_state=0, n_init='auto')
+        kmeans.fit(distances.reshape(-1, 1))
+        labels = kmeans.labels_
+        # Calcular el mean para cada grupo
+        means = np.array([np.mean(distances[labels == i]) for i in range(num_groups)])
+        means=np.sort(means)
+
+        return means
     else:
         print("No hay puntos de inicio.")
         return None
