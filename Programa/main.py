@@ -231,7 +231,7 @@ class MainWindow(QWidget):
         #tabla de registro
         self.MedicionTBL=QTableWidget(self)
         self.MedicionTBL.setColumnCount(5)
-        self.MedicionTBL.setHorizontalHeaderLabels(["LOTE","MIN.","PROM.","MAX.","FECHA"])
+        self.MedicionTBL.setHorizontalHeaderLabels(["LOTE","PROM.","MAX.1","MAX.2","FECHA"])
         self.MedicionTBL.setSizePolicy(QSizePolicy.Expanding,QSizePolicy.Expanding)
         self.MedicionTBL.setFont(QFont(font_family,13))
         self.MedicionTBL.horizontalHeader().setFont(QFont(font_family,13))
@@ -573,6 +573,7 @@ class MainWindow(QWidget):
         QTimer.singleShot(1000,self.diagnosticar)
  
     def medir(self):
+        Pmedible=np.empty(0)
         self.timer.start(30)
         send="medicion\n"
         self.ser.write(send.encode())
@@ -580,6 +581,7 @@ class MainWindow(QWidget):
         self.ser.write(send.encode())
         respuesta=""
         while True:
+            QApplication.processEvents()
             if self.ser.in_waiting>0:
                 respuesta = self.ser.readline().decode().strip()
                 break
@@ -590,6 +592,7 @@ class MainWindow(QWidget):
                 self.ser.write(send.encode())
                 respuesta=""
                 while True:
+                    QApplication.processEvents()
                     if self.ser.in_waiting>0:
                         respuesta = self.ser.readline().decode().strip()
                         break
@@ -601,6 +604,7 @@ class MainWindow(QWidget):
                         send="next\n"
                         self.ser.write(send.encode())
                         while True:
+                            QApplication.processEvents()
                             if self.ser.in_waiting>0:
                                 respuesta = self.ser.readline().decode().strip()
                                 break
@@ -609,16 +613,25 @@ class MainWindow(QWidget):
                             try:
                                 frame=self.picam.capture_array()
                                 distancias=rooter.rooteador(frame,self.threshold)
+                                QApplication.processEvents()
+                                #Pmedible=np.concatenate(Pmedible,distancias)
                             except Exception as e:
-                                QMessageBox.critical(self,"Error",f"Error en calculo\n{e}")
+                                print(e)
+                                QMessageBox.critical(self,"Error","No hay cebolla o esta mal calibrado")
+                                distancias=None
+                                send="exit\n"                    
+                                self.ser.write(send.encode())
+                                return
                             if distancias is not None:
                                 print(f"Numero total de distancias calculadas: {len(distancias)}")
                                 for k, distancia in enumerate(distancias):
                                     print(f"Distancia {k+1}: {distancia:.3f} mm")
+                print(f"distancias juntas: {Pmedible}")
                 send="Ok\n"
                 self.ser.write(send.encode())
                 respuesta=""
                 while True:
+                    QApplication.processEvents()
                     if self.ser.in_waiting>0:
                         respuesta = self.ser.readline().decode().strip()
                         break
@@ -644,6 +657,12 @@ class MainWindow(QWidget):
  
     def diagnosticar(self):
         self.DiagnosticoLBL.setText("")
+        self.MenuBTNS[1].setDisabled(True)
+        self.MenuBTNS[2].setDisabled(True)
+        self.MenuBTNS[2].setStyleSheet(f"outline:none;color:#777777;background-color:{light_color};border-top-right-radius: 40px; border-top-left-radius: 40px; border-bottom-left-radius: 40px; border: 3px solid {main_color};")
+        self.MenuBTNS[3].setDisabled(True)
+        self.MenuBTNS[3].setStyleSheet(f"outline:none;color:#777777;background-color:{light_color};border-top-right-radius: 40px; border-top-left-radius: 40px; border: 3px solid {main_color};")
+        QApplication.processEvents()
         #diagnostico fisico STM
         self.DiagnosticoLBL.setText(self.DiagnosticoLBL.text()+"Diagnóstico STM:\n")
         try:
@@ -653,12 +672,8 @@ class MainWindow(QWidget):
         except:
             self.ser=None
             self.DiagnosticoLBL.setText(self.DiagnosticoLBL.text()+"\tSTM desconectada fisicamente\n")
-            self.MenuBTNS[1].setDisabled(True)
-            self.MenuBTNS[2].setDisabled(True)
-            self.MenuBTNS[2].setStyleSheet(f"outline:none;color:#777777;background-color:{light_color};border-top-right-radius: 40px; border-top-left-radius: 40px; border-bottom-left-radius: 40px; border: 3px solid {main_color};")
-            self.MenuBTNS[3].setDisabled(True)
-            self.MenuBTNS[3].setStyleSheet(f"outline:none;color:#777777;background-color:{light_color};border-top-right-radius: 40px; border-top-left-radius: 40px; border: 3px solid {main_color};")
             return None
+        QApplication.processEvents()
         #diagnostico digital STM
         try:
             send="diagnostico\n"
@@ -674,20 +689,11 @@ class MainWindow(QWidget):
                 self.DiagnosticoLBL.setText(self.DiagnosticoLBL.text()+"\tSTM bien configurada\n")
             else:
                 self.DiagnosticoLBL.setText(self.DiagnosticoLBL.text()+"\tSTM mal configurada\n")
-                self.MenuBTNS[1].setDisabled(True)
-                self.MenuBTNS[2].setDisabled(True)
-                self.MenuBTNS[2].setStyleSheet(f"outline:none;color:#777777;background-color:{light_color};border-top-right-radius: 40px; border-top-left-radius: 40px; border-bottom-left-radius: 40px; border: 3px solid {main_color};")
-                self.MenuBTNS[3].setDisabled(True)
-                self.MenuBTNS[3].setStyleSheet(f"outline:none;color:#777777;background-color:{light_color};border-top-right-radius: 40px; border-top-left-radius: 40px; border: 3px solid {main_color};")
                 return None
         except:
             self.DiagnosticoLBL.setText(self.DiagnosticoLBL.text()+"\tSTM mal configurada\n")
-            self.MenuBTNS[1].setDisabled(True)
-            self.MenuBTNS[2].setDisabled(True)
-            self.MenuBTNS[2].setStyleSheet(f"outline:none;color:#777777;background-color:{light_color};border-top-right-radius: 40px; border-top-left-radius: 40px; border-bottom-left-radius: 40px; border: 3px solid {main_color};")
-            self.MenuBTNS[3].setDisabled(True)
-            self.MenuBTNS[3].setStyleSheet(f"outline:none;color:#777777;background-color:{light_color};border-top-right-radius: 40px; border-top-left-radius: 40px; border: 3px solid {main_color};")
             return None
+        QApplication.processEvents()
         #diagnostico Limit Switches
         self.DiagnosticoLBL.setText(self.DiagnosticoLBL.text()+"Diagnóstico Switches:\n")
         try:
@@ -702,20 +708,11 @@ class MainWindow(QWidget):
                 self.DiagnosticoLBL.setText(self.DiagnosticoLBL.text()+"\tSwitches conectados\n")
             else:
                 self.DiagnosticoLBL.setText(self.DiagnosticoLBL.text()+"\tSwitches desconectados\n")
-                self.MenuBTNS[1].setDisabled(True)
-                self.MenuBTNS[2].setDisabled(True)
-                self.MenuBTNS[2].setStyleSheet(f"outline:none;color:#777777;background-color:{light_color};border-top-right-radius: 40px; border-top-left-radius: 40px; border-bottom-left-radius: 40px; border: 3px solid {main_color};")
-                self.MenuBTNS[3].setDisabled(True)
-                self.MenuBTNS[3].setStyleSheet(f"outline:none;color:#777777;background-color:{light_color};border-top-right-radius: 40px; border-top-left-radius: 40px; border: 3px solid {main_color};")
                 return None
         except:
             self.DiagnosticoLBL.setText(self.DiagnosticoLBL.text()+"\tSwitches desconectados\n")
-            self.MenuBTNS[1].setDisabled(True)
-            self.MenuBTNS[2].setDisabled(True)
-            self.MenuBTNS[2].setStyleSheet(f"outline:none;color:#777777;background-color:{light_color};border-top-right-radius: 40px; border-top-left-radius: 40px; border-bottom-left-radius: 40px; border: 3px solid {main_color};")
-            self.MenuBTNS[3].setDisabled(True)
-            self.MenuBTNS[3].setStyleSheet(f"outline:none;color:#777777;background-color:{light_color};border-top-right-radius: 40px; border-top-left-radius: 40px; border: 3px solid {main_color};")
             return None
+        QApplication.processEvents()
         #diagnostico Motores
         self.DiagnosticoLBL.setText(self.DiagnosticoLBL.text()+"Diagnóstico Motores:\n")
         try:
@@ -732,31 +729,17 @@ class MainWindow(QWidget):
                 self.DiagnosticoLBL.setText(self.DiagnosticoLBL.text()+"\tMotor 1 funcionando\n")
             else:
                 self.DiagnosticoLBL.setText(self.DiagnosticoLBL.text()+"\tMotor 1 desconectado o descompuesto o encoder 1 desconectado o descompuesto\n")
-                self.MenuBTNS[1].setDisabled(True)
-                self.MenuBTNS[2].setDisabled(True)
-                self.MenuBTNS[2].setStyleSheet(f"outline:none;color:#777777;background-color:{light_color};border-top-right-radius: 40px; border-top-left-radius: 40px; border-bottom-left-radius: 40px; border: 3px solid {main_color};")
-                self.MenuBTNS[3].setDisabled(True)
-                self.MenuBTNS[3].setStyleSheet(f"outline:none;color:#777777;background-color:{light_color};border-top-right-radius: 40px; border-top-left-radius: 40px; border: 3px solid {main_color};")
                 return None
             response=self.ser.readline().decode().strip()
             if response == "r2":
                 self.DiagnosticoLBL.setText(self.DiagnosticoLBL.text()+"\tMotor 2 funcionando\n")
             else:
                 self.DiagnosticoLBL.setText(self.DiagnosticoLBL.text()+"\tMotor 2 desconectado o descompuesto o encoder 2 desconectado o descompuesto\n")
-                self.MenuBTNS[1].setDisabled(True)
-                self.MenuBTNS[2].setDisabled(True)
-                self.MenuBTNS[2].setStyleSheet(f"outline:none;color:#777777;background-color:{light_color};border-top-right-radius: 40px; border-top-left-radius: 40px; border-bottom-left-radius: 40px; border: 3px solid {main_color};")
-                self.MenuBTNS[3].setDisabled(True)
-                self.MenuBTNS[3].setStyleSheet(f"outline:none;color:#777777;background-color:{light_color};border-top-right-radius: 40px; border-top-left-radius: 40px; border: 3px solid {main_color};")
                 return None
         except:
             self.DiagnosticoLBL.setText(self.DiagnosticoLBL.text()+"\tMotor 2 desconectado o descompuesto o encoder 2 desconectado o descompuesto\n")
-            self.MenuBTNS[1].setDisabled(True)
-            self.MenuBTNS[2].setDisabled(True)
-            self.MenuBTNS[2].setStyleSheet(f"outline:none;color:#777777;background-color:{light_color};border-top-right-radius: 40px; border-top-left-radius: 40px; border-bottom-left-radius: 40px; border: 3px solid {main_color};")
-            self.MenuBTNS[3].setDisabled(True)
-            self.MenuBTNS[3].setStyleSheet(f"outline:none;color:#777777;background-color:{light_color};border-top-right-radius: 40px; border-top-left-radius: 40px; border: 3px solid {main_color};")
             return None
+        QApplication.processEvents()
         #diagnostico HALL
         self.DiagnosticoLBL.setText(self.DiagnosticoLBL.text()+"Diagnóstico Sensor Hall:\n")
         try:
@@ -771,20 +754,11 @@ class MainWindow(QWidget):
                 self.DiagnosticoLBL.setText(self.DiagnosticoLBL.text()+"\tSensor Hall funcionando\n")
             else:
                 self.DiagnosticoLBL.setText(self.DiagnosticoLBL.text()+"\tSensor Hall desconectado o descompuesto\n")
-                self.MenuBTNS[1].setDisabled(True)
-                self.MenuBTNS[2].setDisabled(True)
-                self.MenuBTNS[2].setStyleSheet(f"outline:none;color:#777777;background-color:{light_color};border-top-right-radius: 40px; border-top-left-radius: 40px; border-bottom-left-radius: 40px; border: 3px solid {main_color};")
-                self.MenuBTNS[3].setDisabled(True)
-                self.MenuBTNS[3].setStyleSheet(f"outline:none;color:#777777;background-color:{light_color};border-top-right-radius: 40px; border-top-left-radius: 40px; border: 3px solid {main_color};")
                 return None
         except:
             self.DiagnosticoLBL.setText(self.DiagnosticoLBL.text()+"\tSensor Hall desconectado o descompuesto\n")
-            self.MenuBTNS[1].setDisabled(True)
-            self.MenuBTNS[2].setDisabled(True)
-            self.MenuBTNS[2].setStyleSheet(f"outline:none;color:#777777;background-color:{light_color};border-top-right-radius: 40px; border-top-left-radius: 40px; border-bottom-left-radius: 40px; border: 3px solid {main_color};")
-            self.MenuBTNS[3].setDisabled(True)
-            self.MenuBTNS[3].setStyleSheet(f"outline:none;color:#777777;background-color:{light_color};border-top-right-radius: 40px; border-top-left-radius: 40px; border: 3px solid {main_color};")
             return None
+        QApplication.processEvents()
         #diagnostico STPR y Presencia
         self.DiagnosticoLBL.setText(self.DiagnosticoLBL.text()+"Diagnóstico Sistema de carrusel:\n")
         try:
@@ -800,28 +774,14 @@ class MainWindow(QWidget):
                 self.DiagnosticoLBL.setText(self.DiagnosticoLBL.text()+"\tSensor de presencia funcionando\n")   
             elif response == "rSeP":
                 self.DiagnosticoLBL.setText(self.DiagnosticoLBL.text()+"\tSensor de presencia desconectado o descompuesto\n")
-                self.MenuBTNS[1].setDisabled(True)
-                self.MenuBTNS[2].setDisabled(True)
-                self.MenuBTNS[2].setStyleSheet(f"outline:none;color:#777777;background-color:{light_color};border-top-right-radius: 40px; border-top-left-radius: 40px; border-bottom-left-radius: 40px; border: 3px solid {main_color};")
-                self.MenuBTNS[3].setDisabled(True)
-                self.MenuBTNS[3].setStyleSheet(f"outline:none;color:#777777;background-color:{light_color};border-top-right-radius: 40px; border-top-left-radius: 40px; border: 3px solid {main_color};")
                 return None
             else:
                 self.DiagnosticoLBL.setText(self.DiagnosticoLBL.text()+"\tMotor del carrusel desconectado o iman perdido\n")
-                self.MenuBTNS[1].setDisabled(True)
-                self.MenuBTNS[2].setDisabled(True)
-                self.MenuBTNS[2].setStyleSheet(f"outline:none;color:#777777;background-color:{light_color};border-top-right-radius: 40px; border-top-left-radius: 40px; border-bottom-left-radius: 40px; border: 3px solid {main_color};")
-                self.MenuBTNS[3].setDisabled(True)
-                self.MenuBTNS[3].setStyleSheet(f"outline:none;color:#777777;background-color:{light_color};border-top-right-radius: 40px; border-top-left-radius: 40px; border: 3px solid {main_color};")
                 return None
         except:
             self.DiagnosticoLBL.setText(self.DiagnosticoLBL.text()+"\tSensor Hall desconectado o descompuesto\n")
-            self.MenuBTNS[1].setDisabled(True)
-            self.MenuBTNS[2].setDisabled(True)
-            self.MenuBTNS[2].setStyleSheet(f"outline:none;color:#777777;background-color:{light_color};border-top-right-radius: 40px; border-top-left-radius: 40px; border-bottom-left-radius: 40px; border: 3px solid {main_color};")
-            self.MenuBTNS[3].setDisabled(True)
-            self.MenuBTNS[3].setStyleSheet(f"outline:none;color:#777777;background-color:{light_color};border-top-right-radius: 40px; border-top-left-radius: 40px; border: 3px solid {main_color};")
             return None
+        QApplication.processEvents()
         #diagnostico camara
         self.DiagnosticoLBL.setText(self.DiagnosticoLBL.text()+"Diagnóstico Camara:\n")
         try:
@@ -841,19 +801,15 @@ class MainWindow(QWidget):
         except Exception as e:
             self.picam=None
             self.DiagnosticoLBL.setText(self.DiagnosticoLBL.text()+"\tCámara desconectada\n")
-            self.MenuBTNS[1].setDisabled(True)
-            self.MenuBTNS[2].setDisabled(True)
-            self.MenuBTNS[2].setStyleSheet(f"outline:none;color:#777777;background-color:{light_color};border-top-right-radius: 40px; border-top-left-radius: 40px; border-bottom-left-radius: 40px; border: 3px solid {main_color};")
-            self.MenuBTNS[3].setDisabled(True)
-            self.MenuBTNS[3].setStyleSheet(f"outline:none;color:#777777;background-color:{light_color};border-top-right-radius: 40px; border-top-left-radius: 40px; border: 3px solid {main_color};")
             print(f"error:{e}")
         send="exit\n"
         self.DiagnosticoLBL.setText(self.DiagnosticoLBL.text()+"-------------------------------------------\n")
         self.ser.write(send.encode())
- 
-    def rooteador():
-        return None
- 
+        self.MenuBTNS[1].setDisabled(False)
+        self.MenuBTNS[2].setDisabled(False)
+        self.MenuBTNS[2].setStyleSheet(f"outline:none;color:{main_color};background-color:{light_color}; border-top-right-radius: 40px;border-top-left-radius: 40px; border-bottom-left-radius: 40px; border: 3px solid {main_color};")
+        self.MenuBTNS[3].setDisabled(False)
+        self.MenuBTNS[3].setStyleSheet(f"outline:none;color:{main_color};background-color:{light_color}; border-top-right-radius: 40px;border-top-left-radius: 40px; border: 3px solid {main_color};")
  
  
     def exportar(self,button):
@@ -885,6 +841,7 @@ class MainWindow(QWidget):
                 writer=csv.writer(file)
                 writer.writerow([self.brightness])
                 writer.writerow([self.threshold])
+        QMessageBox.information(self,"Guardado exitoso","se haguardado la configuracion")
  
  
  
